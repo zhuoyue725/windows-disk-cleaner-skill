@@ -744,6 +744,14 @@ if (-not $NoHtml) {
     if ($i -ge 0 -and $i -lt $p.Length - 1) { return $p.Substring($i + 1) }
     return $p
   }
+  function Get-FileUrl {
+    param([string]$Path, [switch]$OpenParent)
+    $target = $Path
+    if ($OpenParent -and -not [string]::IsNullOrWhiteSpace($Path)) {
+      $target = Split-Path -Path $Path -Parent
+    }
+    try { return ([System.Uri]::new($target)).AbsoluteUri } catch { return '' }
+  }
   function Get-TensionColor { param([string]$C)
     switch ($C) { 'red' { '#ef5f5f' } 'amber' { '#ef9f27' } 'yellow' { '#dcc46a' } default { '#5dcaa5' } }
   }
@@ -757,13 +765,16 @@ if (-not $NoHtml) {
     $os += '<text x="60" y="76" text-anchor="middle" class="d-sub">已用</text></svg>'
     return $os
   }
-  function New-BarRow { param([string]$Name, [string]$Path, [string]$SizeText, [double]$Pct, [string]$Color, [string]$Category, [string]$Extra)
+  function New-BarRow { param([string]$Name, [string]$Path, [string]$SizeText, [double]$Pct, [string]$Color, [string]$Category, [string]$Extra, [switch]$OpenParent)
+    $fileUrl = Get-FileUrl -Path $Path -OpenParent:$OpenParent
     $os = '<div class="brow"><div class="brow-top">'
     $os += '<span class="dot" style="background:' + $Color + '"></span>'
     $os += '<span class="brow-name">' + (Escape-Html $Name) + '</span>'
     if ($Category) { $os += '<span class="brow-cat">' + (Escape-Html $Category) + '</span>' }
     if ($Extra) { $os += '<span class="brow-extra">' + (Escape-Html $Extra) + '</span>' }
-    $os += '<span class="brow-size">' + $SizeText + '</span></div>'
+    $os += '<span class="brow-size">' + $SizeText + '</span>'
+    if ($fileUrl) { $os += '<a class="open-link" href="' + $fileUrl + '" target="_blank" title="在资源管理器中打开">打开</a>' }
+    $os += '</div>'
     $os += ('<div class="track"><i style="width:' + [math]::Max(1.2, [math]::Round($Pct, 1)) + '%;background:' + $Color + '"></i></div>')
     $os += ('<div class="brow-path" title="' + (Escape-Html $Path) + '">' + (Escape-Html $Path) + '</div></div>')
     return $os
@@ -780,7 +791,7 @@ if (-not $NoHtml) {
     $os += '<span class="space-kind">' + (Escape-Html $cat) + '</span>'
     $os += '<span class="space-size">' + (Format-Size $Item.size) + '</span></summary>'
     $os += '<div class="space-share"><i style="width:' + [math]::Max(1.2, [math]::Round($share, 1)) + '%;background:' + $Accent + '"></i></div>'
-    $os += '<div class="space-meta"><span>占本盘已用空间 ' + [math]::Round($share, 1) + '%</span><code title="' + (Escape-Html $Item.path) + '">' + (Escape-Html $Item.path) + '</code></div>'
+    $os += '<div class="space-meta"><span>占本盘已用空间 ' + [math]::Round($share, 1) + '%</span><code title="' + (Escape-Html $Item.path) + '">' + (Escape-Html $Item.path) + '</code><a class="open-folder" href="' + (Get-FileUrl $Item.path) + '" target="_blank">在资源管理器中打开</a></div>'
     $os += '<div class="action"><b>建议</b> ' + (Escape-Html $advice.action) + ' <span>' + (Escape-Html $advice.risk) + '</span></div>'
     if ($Children.Count -gt 0) {
       $os += '<div class="children"><div class="children-title">占用较多的子目录</div>'
@@ -828,6 +839,7 @@ if (-not $NoHtml) {
   Add-H '.brow-name{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44%}'
   Add-H '.brow-cat{color:var(--mut);font-size:12px;white-space:nowrap}.brow-extra{color:var(--mut);font-size:12px;white-space:nowrap}'
   Add-H '.brow-size{margin-left:auto;font-family:var(--mono);font-size:13px;white-space:nowrap}'
+  Add-H '.open-link,.open-folder{color:#8bdcc0;text-decoration:none;border:1px solid #28604e;border-radius:5px;padding:1px 7px;font-size:11px;white-space:nowrap}.open-link:hover,.open-folder:hover{background:#173d32;color:#c9f5e5}.open-folder{margin-left:auto}'
   Add-H '.track{height:7px;border-radius:4px;background:#232730;overflow:hidden;margin:6px 0 4px}.track>i{display:block;height:100%;border-radius:4px}'
   Add-H '.brow-path{font-family:var(--mono);font-size:11.5px;color:#8b95a2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
   Add-H '.tier{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;border-left:4px solid var(--acc)}'
@@ -929,7 +941,7 @@ if (-not $NoHtml) {
     foreach ($f in $largestFiles) {
       $cat = Get-Category -Path $f.path -Size $f.size
       $pct = if ($maxFile -gt 0) { 100 * $f.size / $maxFile } else { 0 }
-      Add-H (New-BarRow -Name (Get-Leaf $f.path) -Path $f.path -SizeText (Format-Size $f.size) -Pct $pct -Color (Get-CatColor $cat) -Category $cat -Extra $f.drive)
+      Add-H (New-BarRow -Name (Get-Leaf $f.path) -Path $f.path -SizeText (Format-Size $f.size) -Pct $pct -Color (Get-CatColor $cat) -Category $cat -Extra $f.drive -OpenParent)
     }
   }
 
