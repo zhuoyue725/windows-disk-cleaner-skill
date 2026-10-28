@@ -744,13 +744,14 @@ if (-not $NoHtml) {
     if ($i -ge 0 -and $i -lt $p.Length - 1) { return $p.Substring($i + 1) }
     return $p
   }
-  function Get-FileUrl {
+  function Get-ExplorerUrl {
     param([string]$Path, [switch]$OpenParent)
     $target = $Path
     if ($OpenParent -and -not [string]::IsNullOrWhiteSpace($Path)) {
       $target = Split-Path -Path $Path -Parent
     }
-    try { return ([System.Uri]::new($target)).AbsoluteUri } catch { return '' }
+    if ([string]::IsNullOrWhiteSpace($target) -or -not [System.IO.Path]::IsPathRooted($target)) { return '' }
+    return 'windows-disk-cleaner://open?path=' + [System.Uri]::EscapeDataString($target)
   }
   function Get-TensionColor { param([string]$C)
     switch ($C) { 'red' { '#ef5f5f' } 'amber' { '#ef9f27' } 'yellow' { '#dcc46a' } default { '#5dcaa5' } }
@@ -766,7 +767,7 @@ if (-not $NoHtml) {
     return $os
   }
   function New-BarRow { param([string]$Name, [string]$Path, [string]$SizeText, [double]$Pct, [string]$Color, [string]$Category, [string]$Extra, [switch]$OpenParent)
-    $fileUrl = Get-FileUrl -Path $Path -OpenParent:$OpenParent
+    $fileUrl = Get-ExplorerUrl -Path $Path -OpenParent:$OpenParent
     $os = '<div class="brow"><div class="brow-top">'
     $os += '<span class="dot" style="background:' + $Color + '"></span>'
     $os += '<span class="brow-name">' + (Escape-Html $Name) + '</span>'
@@ -791,7 +792,7 @@ if (-not $NoHtml) {
     $os += '<span class="space-kind">' + (Escape-Html $cat) + '</span>'
     $os += '<span class="space-size">' + (Format-Size $Item.size) + '</span></summary>'
     $os += '<div class="space-share"><i style="width:' + [math]::Max(1.2, [math]::Round($share, 1)) + '%;background:' + $Accent + '"></i></div>'
-    $os += '<div class="space-meta"><span>占本盘已用空间 ' + [math]::Round($share, 1) + '%</span><code title="' + (Escape-Html $Item.path) + '">' + (Escape-Html $Item.path) + '</code><a class="open-folder" href="' + (Get-FileUrl $Item.path) + '" target="_blank">在资源管理器中打开</a></div>'
+    $os += '<div class="space-meta"><span>占本盘已用空间 ' + [math]::Round($share, 1) + '%</span><code title="' + (Escape-Html $Item.path) + '">' + (Escape-Html $Item.path) + '</code><a class="open-folder" href="' + (Get-ExplorerUrl $Item.path) + '">在资源管理器中打开</a></div>'
     $os += '<div class="action"><b>建议</b> ' + (Escape-Html $advice.action) + ' <span>' + (Escape-Html $advice.risk) + '</span></div>'
     if ($Children.Count -gt 0) {
       $os += '<div class="children"><div class="children-title">占用较多的子目录</div>'

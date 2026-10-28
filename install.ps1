@@ -35,8 +35,26 @@ foreach ($name in $selected) {
   $installed += [pscustomobject]@{ target = $name; path = $dest }
 }
 
+# 注册本机 URL 协议，让 HTML 报告中的“打开”按钮启动 Windows 资源管理器，
+# 而不是由浏览器显示 file:/// 目录索引。注册在当前用户下，无需管理员权限。
+$protocolSkillPath = $installed[0].path
+$protocolHandler = Join-Path $protocolSkillPath 'scripts\open_in_explorer.ps1'
+if (Test-Path -LiteralPath $protocolHandler) {
+  $protocol = 'windows-disk-cleaner'
+  $protocolKey = "HKCU:\Software\Classes\$protocol"
+  New-Item -Path "$protocolKey\shell\open\command" -Force | Out-Null
+  Set-ItemProperty -Path $protocolKey -Name '(default)' -Value 'URL: Windows Disk Cleaner Explorer Link'
+  New-ItemProperty -Path $protocolKey -Name 'URL Protocol' -Value '' -PropertyType String -Force | Out-Null
+  $psExe = (Get-Command powershell.exe -ErrorAction Stop).Source
+  $command = '"{0}" -NoProfile -ExecutionPolicy Bypass -File "{1}" "%1"' -f $psExe, $protocolHandler
+  Set-ItemProperty -Path "$protocolKey\shell\open\command" -Name '(default)' -Value $command
+}
+
 'Installed windows-disk-cleaner skill:'
 $installed | Format-Table -AutoSize
+if (Test-Path -LiteralPath $protocolHandler) {
+  '已注册报告目录打开协议：点击 HTML 报告中的“打开”会启动 Windows 资源管理器。'
+}
 
 # 说明：本仓库所有 .ps1 均保存为 UTF-8 with BOM。
 # Windows PowerShell 5.1 对无 BOM 文件按 ANSI 解析，中文字符串会损坏，
