@@ -820,8 +820,10 @@ if (-not $NoHtml) {
   Add-H '<meta name="viewport" content="width=device-width,initial-scale=1">'
   Add-H '<title>磁盘空间分析报告</title><style>'
   Add-H ':root{--bg:#0f1115;--card:#171a21;--line:#252932;--fg:#e6e8eb;--mut:#98a1ad;--mono:ui-monospace,Consolas,"Cascadia Mono",monospace}'
-  Add-H '*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.6 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;padding:30px 20px}'
-  Add-H '.wrap{max-width:1100px;margin:0 auto}h1{font-size:22px;font-weight:500;margin:0 0 6px}h2{font-size:16px;font-weight:500;margin:36px 0 12px;display:flex;align-items:center;gap:10px}h3{font-size:14px;font-weight:500;margin:18px 0 8px;color:var(--mut)}'
+  Add-H '*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.6 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;padding:30px 20px}'
+  Add-H '.layout{max-width:1360px;margin:0 auto;display:grid;grid-template-columns:208px minmax(0,1100px);gap:28px}.wrap{min-width:0}h1{font-size:22px;font-weight:500;margin:0 0 6px}h2{font-size:16px;font-weight:500;margin:36px 0 12px;display:flex;align-items:center;gap:10px}h3{font-size:14px;font-weight:500;margin:18px 0 8px;color:var(--mut)}'
+  Add-H '.sidebar{position:sticky;top:24px;align-self:start;border:1px solid var(--line);border-radius:12px;background:#14171d;padding:11px;max-height:calc(100vh - 48px);overflow:auto}.nav-title{font-size:12px;color:var(--mut);letter-spacing:.08em;text-transform:uppercase;padding:4px 7px 8px}.nav-link{display:flex;align-items:center;gap:8px;color:#abb4c0;text-decoration:none;border-radius:7px;padding:7px 8px;margin:1px 0;font-size:13px}.nav-link:hover{color:var(--fg);background:#20252e}.nav-dot{width:8px;height:8px;border-radius:50%;background:#697383;flex:none}.nav-section{border-top:1px solid var(--line);margin:8px 0;padding-top:8px}.nav-drive{font-family:var(--mono);font-weight:600;color:#d8dce2}.drive-section{scroll-margin-top:20px}'
+  Add-H '@media(max-width:920px){body{padding:16px}.layout{display:block}.sidebar{position:sticky;top:0;z-index:5;max-height:none;margin:-16px -16px 18px;padding:8px 16px;border-radius:0;border-width:0 0 1px;display:flex;gap:4px;overflow-x:auto;white-space:nowrap}.nav-title{display:none}.nav-section{display:contents;border:0;margin:0;padding:0}.nav-link{flex:none;padding:6px 8px}.nav-link:not(.nav-drive){font-size:0}.nav-link:not(.nav-drive) .nav-dot{width:7px;height:7px}.nav-drive{font-size:13px!important}}'
   Add-H '.meta{color:var(--mut);font-size:13px;margin-bottom:20px}'
   Add-H '.chip{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:26px;padding:0 8px;border-radius:7px;font-family:var(--mono);font-size:14px;font-weight:500;color:#0d1117}'
   Add-H '.dvol{font-weight:500}.dmeta{color:var(--mut);font-size:13px;font-weight:400}'
@@ -849,8 +851,11 @@ if (-not $NoHtml) {
   Add-H '.space-intro{display:flex;justify-content:space-between;align-items:end;gap:16px;margin:34px 0 10px}.space-intro h2{margin:0}.space-intro .note{text-align:right;margin:0}'
   Add-H '.space-card{background:var(--card);border:1px solid var(--line);border-radius:13px;margin:8px 0;overflow:hidden}.space-card[open]{border-color:#3a4350}.space-card summary{display:flex;align-items:center;gap:9px;cursor:pointer;padding:14px 16px;list-style:none}.space-card summary::-webkit-details-marker{display:none}.space-card summary:after{content:"›";color:var(--mut);font-size:22px;line-height:12px;transform:rotate(0deg);margin-left:3px}.space-card[open] summary:after{transform:rotate(90deg)}'
   Add-H '.rank-dot{width:10px;height:10px;border-radius:50%;flex:none}.space-name{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.space-kind{color:var(--mut);font-size:12px}.space-size{font-family:var(--mono);font-size:17px;font-weight:600;margin-left:auto;white-space:nowrap}.space-share{height:6px;background:#252a34;margin:0 16px;overflow:hidden;border-radius:3px}.space-share i{display:block;height:100%;border-radius:3px}.space-meta{display:flex;gap:12px;align-items:center;color:var(--mut);font-size:12px;padding:8px 16px}.space-meta code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.action{margin:0 16px 13px;padding:9px 11px;background:#101c1a;border:1px solid #1d4b3e;border-radius:7px;color:#bfe4d4;font-size:13px}.action b{color:#75ddb5}.action span{float:right;color:#90a99f}.children{border-top:1px solid var(--line);padding:10px 10px 8px;background:#13161c}.children-title{font-size:12px;color:var(--mut);margin:2px 7px 6px}.children.empty{color:var(--mut);font-size:12px;padding:13px 16px}'
-  Add-H '</style></head><body><div class="wrap">'
-  Add-H ('<h1>磁盘空间分析报告</h1><div class="meta">' + (Get-Date -Format 'yyyy-MM-dd HH:mm') + ' · 引擎 ' + (Escape-Html $engineNote) + ' · 只读扫描，未删除任何文件</div>')
+  Add-H '</style></head><body><div class="layout"><aside class="sidebar"><div class="nav-title">报告目录</div>'
+  Add-H '<a class="nav-link" href="#overview"><span class="nav-dot"></span>磁盘总览</a><a class="nav-link" href="#reclaim"><span class="nav-dot" style="background:#5dcaa5"></span>可清理空间</a><div class="nav-section">'
+  foreach ($d in $inventory) { Add-H ('<a class="nav-link nav-drive" href="#drive-' + $d.drive.TrimEnd(':') + '"><span class="nav-dot" style="background:' + $driveAccents[$d.drive] + '"></span>' + $d.drive + ' 盘</a>') }
+  Add-H '</div><div class="nav-section"><a class="nav-link" href="#largest-files"><span class="nav-dot" style="background:#c39bf2"></span>最大文件</a><a class="nav-link" href="#cleanup"><span class="nav-dot" style="background:#ef9f27"></span>清理建议</a><a class="nav-link" href="#decisions"><span class="nav-dot" style="background:#f093ab"></span>需决策项目</a><a class="nav-link" href="#steps"><span class="nav-dot" style="background:#6aa8f0"></span>执行步骤</a></div></aside><div class="wrap">'
+  Add-H ('<div id="overview"><h1>磁盘空间分析报告</h1><div class="meta">' + (Get-Date -Format 'yyyy-MM-dd HH:mm') + ' · 引擎 ' + (Escape-Html $engineNote) + ' · 只读扫描，未删除任何文件</div>')
 
   # 磁盘卡片：环形图 + 每盘主题色
   Add-H '<div class="drives">'
@@ -866,9 +871,10 @@ if (-not $NoHtml) {
     Add-H '</div>'
   }
   Add-H '</div>'
+  Add-H '</div>'
 
   # 可释放空间汇总
-  Add-H '<div class="grid">'
+  Add-H '<div id="reclaim" class="grid">'
   foreach ($tier in @('SAFE_DELETE', 'SAFE_IF_CLOSED', 'ADMIN_SAFE')) {
     $items = @($planGroups[$tier])
     if ($items.Count -eq 0) { continue }
@@ -903,7 +909,7 @@ if (-not $NoHtml) {
       Sort-Object size -Descending | Select-Object -First $Top)
     if ($dirs.Count -eq 0) { continue }
 
-    Add-H ('<div class="space-intro"><h2><span class="chip" style="background:' + $acc + '">' + $d.drive + '</span><span class="dvol">' + (Escape-Html $d.label) + '</span><span class="tag ' + $cls + '">' + $t.label + '</span></h2><p class="note">容量 ' + (Format-Size $d.size) + ' · 已用 ' + (Format-Size $d.used) + ' · 剩余 ' + $d.free_pct + '%</p></div>')
+    Add-H ('<section id="drive-' + $d.drive.TrimEnd(':') + '" class="drive-section"><div class="space-intro"><h2><span class="chip" style="background:' + $acc + '">' + $d.drive + '</span><span class="dvol">' + (Escape-Html $d.label) + '</span><span class="tag ' + $cls + '">' + $t.label + '</span></h2><p class="note">容量 ' + (Format-Size $d.size) + ' · 已用 ' + (Format-Size $d.used) + ' · 剩余 ' + $d.free_pct + '%</p></div>')
 
     # 堆叠条：前 10 个目录占已用空间比例，灰色为其余零散
     $shown = @($dirs | Select-Object -First 10)
@@ -930,13 +936,14 @@ if (-not $NoHtml) {
       $children = @($allDeep | Where-Object { (Split-Path -Path $_.path -Parent).TrimEnd('\') -eq $x.path.TrimEnd('\') } | Sort-Object size -Descending | Select-Object -First 6)
       Add-H (New-DirectoryCard -Item $x -Children $children -DriveUsed $d.used -Accent $acc -Open ($rank -le 4))
     }
+    Add-H '</section>'
   }
 
   # 最大文件
   $largestFiles = @($fileRows | Where-Object { $_ -and $null -ne $_.PSObject.Properties['size'] } |
     Sort-Object size -Descending | Select-Object -First 12)
   if ($largestFiles.Count -gt 0) {
-    Add-H '<h2>最大的单个文件</h2>'
+    Add-H '<h2 id="largest-files">最大的单个文件</h2>'
     $maxFile = ($largestFiles | Measure-Object size -Maximum).Maximum
     foreach ($f in $largestFiles) {
       $cat = Get-Category -Path $f.path -Size $f.size
@@ -946,7 +953,7 @@ if (-not $NoHtml) {
   }
 
   # 清理建议：分档卡片
-  Add-H '<h2>清理建议</h2>'
+  Add-H '<h2 id="cleanup">清理建议</h2>'
   $idx = 0
   foreach ($tier in $order) {
     $items = @($planGroups[$tier])
@@ -978,7 +985,7 @@ if (-not $NoHtml) {
 
   # 需决策
   if ($manual.Count -gt 0) {
-    Add-H '<h2>需要你决策的大额项目</h2><p class="note">体量大但不该直接删除，工具已自动排除在清理范围外。</p>'
+    Add-H '<h2 id="decisions">需要你决策的大额项目</h2><p class="note">体量大但不该直接删除，工具已自动排除在清理范围外。</p>'
     $maxM = ($manual | Measure-Object size -Maximum).Maximum
     foreach ($m in $manual) {
       $pct = if ($maxM -gt 0) { 100 * $m.size / $maxM } else { 0 }
@@ -988,7 +995,7 @@ if (-not $NoHtml) {
   }
 
   # 命令
-  Add-H '<h2>执行步骤</h2>'
+  Add-H '<h2 id="steps">执行步骤</h2>'
   Add-H '<pre># 1. 预演，不删除任何文件'
   if ($PlanPath) { Add-H ('clean_space.ps1 -PlanPath "' + $PlanPath + '" -DryRun') } else { Add-H 'scan_space.ps1 -Drives C: -Mode Fast' }
   Add-H ''
@@ -999,7 +1006,7 @@ if (-not $NoHtml) {
   if ($PlanPath) { Add-H ('clean_space.ps1 -PlanPath "' + $PlanPath + '" -Only SAFE_IF_CLOSED') }
   Add-H '</pre>'
   Add-H '<p class="note">保留回收站内容，避免误删不可恢复；确需清空时加 <code>-ClearRecycleBin</code>。</p>'
-  Add-H '</div></body></html>'
+  Add-H '</div></div></body></html>'
 
   [System.IO.File]::WriteAllText($htmlPath, $html.ToString(), $utf8Bom)
 }
