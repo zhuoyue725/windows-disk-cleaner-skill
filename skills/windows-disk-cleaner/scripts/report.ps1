@@ -768,6 +768,36 @@ if (-not $NoHtml) {
     $os += ('<div class="brow-path" title="' + (Escape-Html $Path) + '">' + (Escape-Html $Path) + '</div></div>')
     return $os
   }
+  function New-DirectoryCard {
+    param([object]$Item, [object[]]$Children, [double]$DriveUsed, [string]$Accent, [bool]$Open)
+    $cat = Get-Category -Path $Item.path -Size $Item.size
+    $advice = Get-Advice -Category $cat
+    $share = if ($DriveUsed -gt 0) { 100 * $Item.size / $DriveUsed } else { 0 }
+    $openAttr = if ($Open) { ' open' } else { '' }
+    $os = '<details class="space-card"' + $openAttr + '><summary>'
+    $os += '<span class="rank-dot" style="background:' + (Get-CatColor $cat) + '"></span>'
+    $os += '<span class="space-name">' + (Escape-Html (Get-Leaf $Item.path)) + '</span>'
+    $os += '<span class="space-kind">' + (Escape-Html $cat) + '</span>'
+    $os += '<span class="space-size">' + (Format-Size $Item.size) + '</span></summary>'
+    $os += '<div class="space-share"><i style="width:' + [math]::Max(1.2, [math]::Round($share, 1)) + '%;background:' + $Accent + '"></i></div>'
+    $os += '<div class="space-meta"><span>占本盘已用空间 ' + [math]::Round($share, 1) + '%</span><code title="' + (Escape-Html $Item.path) + '">' + (Escape-Html $Item.path) + '</code></div>'
+    $os += '<div class="action"><b>建议</b> ' + (Escape-Html $advice.action) + ' <span>' + (Escape-Html $advice.risk) + '</span></div>'
+    if ($Children.Count -gt 0) {
+      $os += '<div class="children"><div class="children-title">占用较多的子目录</div>'
+      $childMax = ($Children | Measure-Object size -Maximum).Maximum
+      foreach ($child in $Children) {
+        $childPct = if ($childMax -gt 0) { 100 * $child.size / $childMax } else { 0 }
+        $childCat = Get-Category -Path $child.path -Size $child.size
+        $childAdvice = Get-Advice -Category $childCat
+        $os += (New-BarRow -Name (Get-Leaf $child.path) -Path $child.path -SizeText (Format-Size $child.size) -Pct $childPct -Color (Get-CatColor $childCat) -Category $childCat -Extra $childAdvice.action)
+      }
+      $os += '</div>'
+    } else {
+      $os += '<div class="children empty">没有达到展示阈值的子目录；可展开其他目录或提高扫描深度。</div>'
+    }
+    $os += '</details>'
+    return $os
+  }
 
   # 每盘一个主题色，标题 chip / 堆叠条高亮全篇一致，便于区分磁盘
   $driveAccents = @{}
@@ -792,7 +822,7 @@ if (-not $NoHtml) {
   Add-H '.dcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center;border-top:3px solid var(--acc)}'
   Add-H '.donut{width:104px;height:104px}.d-pct{font-size:23px;fill:var(--fg);font-family:var(--mono)}.d-sub{font-size:10px;fill:var(--mut)}'
   Add-H '.dcard .dname{font-weight:500;margin-top:6px}.dcard .dfree{font-size:21px;font-weight:500;font-family:var(--mono)}.dcard .dsub{color:var(--mut);font-size:12px;margin:2px 0 8px}'
-  Add-H '.stacked{display:flex;height:22px;border-radius:6px;overflow:hidden;background:#232730;margin:4px 0 8px}.seg{height:100%}'
+  Add-H '.stacked{display:flex;height:18px;border-radius:9px;overflow:hidden;background:#232730;margin:10px 0 8px}.seg{height:100%;min-width:2px}'
   Add-H '.brow{padding:9px 10px;border-radius:9px;margin-bottom:4px}.brow:hover{background:#1c2029}'
   Add-H '.brow-top{display:flex;align-items:center;gap:8px}.dot{width:9px;height:9px;border-radius:50%;flex:none}'
   Add-H '.brow-name{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44%}'
@@ -804,6 +834,9 @@ if (-not $NoHtml) {
   Add-H '.tier-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}.tier-title{font-weight:500;font-size:15px}.tier-sum{font-family:var(--mono);font-size:17px;font-weight:500;margin-left:auto}'
   Add-H 'pre{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.65;color:#c8d0da;margin:0}'
   Add-H '.howto{color:#aab3bf;font-size:13px;line-height:1.75;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}'
+  Add-H '.space-intro{display:flex;justify-content:space-between;align-items:end;gap:16px;margin:34px 0 10px}.space-intro h2{margin:0}.space-intro .note{text-align:right;margin:0}'
+  Add-H '.space-card{background:var(--card);border:1px solid var(--line);border-radius:13px;margin:8px 0;overflow:hidden}.space-card[open]{border-color:#3a4350}.space-card summary{display:flex;align-items:center;gap:9px;cursor:pointer;padding:14px 16px;list-style:none}.space-card summary::-webkit-details-marker{display:none}.space-card summary:after{content:"›";color:var(--mut);font-size:22px;line-height:12px;transform:rotate(0deg);margin-left:3px}.space-card[open] summary:after{transform:rotate(90deg)}'
+  Add-H '.rank-dot{width:10px;height:10px;border-radius:50%;flex:none}.space-name{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.space-kind{color:var(--mut);font-size:12px}.space-size{font-family:var(--mono);font-size:17px;font-weight:600;margin-left:auto;white-space:nowrap}.space-share{height:6px;background:#252a34;margin:0 16px;overflow:hidden;border-radius:3px}.space-share i{display:block;height:100%;border-radius:3px}.space-meta{display:flex;gap:12px;align-items:center;color:var(--mut);font-size:12px;padding:8px 16px}.space-meta code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.action{margin:0 16px 13px;padding:9px 11px;background:#101c1a;border:1px solid #1d4b3e;border-radius:7px;color:#bfe4d4;font-size:13px}.action b{color:#75ddb5}.action span{float:right;color:#90a99f}.children{border-top:1px solid var(--line);padding:10px 10px 8px;background:#13161c}.children-title{font-size:12px;color:var(--mut);margin:2px 7px 6px}.children.empty{color:var(--mut);font-size:12px;padding:13px 16px}'
   Add-H '</style></head><body><div class="wrap">'
   Add-H ('<h1>磁盘空间分析报告</h1><div class="meta">' + (Get-Date -Format 'yyyy-MM-dd HH:mm') + ' · 引擎 ' + (Escape-Html $engineNote) + ' · 只读扫描，未删除任何文件</div>')
 
@@ -848,7 +881,7 @@ if (-not $NoHtml) {
     }
   }
 
-  # 各盘分区：堆叠条 + 目录排行 + 二级大户
+  # 各盘空间树：顶级目录为主体，展开后直接看到高占用子目录与对应建议。
   foreach ($d in $inventory) {
     $acc = $driveAccents[$d.drive]
     $t = Get-Tension $d.free_pct
@@ -858,7 +891,7 @@ if (-not $NoHtml) {
       Sort-Object size -Descending | Select-Object -First $Top)
     if ($dirs.Count -eq 0) { continue }
 
-    Add-H ('<h2><span class="chip" style="background:' + $acc + '">' + $d.drive + '</span><span class="dvol">' + (Escape-Html $d.label) + '</span><span class="dmeta">' + (Format-Size $d.size) + ' · 剩余 ' + $d.free_pct + '%</span><span class="tag ' + $cls + '">' + $t.label + '</span></h2>')
+    Add-H ('<div class="space-intro"><h2><span class="chip" style="background:' + $acc + '">' + $d.drive + '</span><span class="dvol">' + (Escape-Html $d.label) + '</span><span class="tag ' + $cls + '">' + $t.label + '</span></h2><p class="note">容量 ' + (Format-Size $d.size) + ' · 已用 ' + (Format-Size $d.used) + ' · 剩余 ' + $d.free_pct + '%</p></div>')
 
     # 堆叠条：前 10 个目录占已用空间比例，灰色为其余零散
     $shown = @($dirs | Select-Object -First 10)
@@ -876,28 +909,14 @@ if (-not $NoHtml) {
       $rpct = if ($d.used -gt 0) { 100 * $remain / $d.used } else { 0 }
       Add-H ('<div class="seg" style="width:' + [math]::Round($rpct, 2) + '%;background:#3a3f4a" title="其余零散文件 · ' + (Format-Size $remain) + '"></div>')
     }
-    Add-H '</div><div class="note">上图为该盘最大的 ' + $shown.Count + ' 个目录占已用空间的比例，灰色为其余零散文件。</div>'
+    Add-H '</div><div class="note">颜色对应内容性质；灰色为其余零散文件。下面按占用从大到小排列，可展开查看每个目录的子目录和处理建议。</div></div>'
 
-    $maxDir = ($dirs | Measure-Object size -Maximum).Maximum
+    $allDeep = @($treeRows | Where-Object { $_.is_dir -and $_.depth -eq 2 -and $_.path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) })
+    $rank = 0
     foreach ($x in $dirs) {
-      $pct = if ($maxDir -gt 0) { 100 * $x.size / $maxDir } else { 0 }
-      $cat = Get-Category -Path $x.path -Size $x.size
-      Add-H (New-BarRow -Name (Get-Leaf $x.path) -Path $x.path -SizeText (Format-Size $x.size) -Pct $pct -Color (Get-CatColor $cat) -Category $cat)
-    }
-    Add-H '</div>'
-
-    $deep = @($treeRows | Where-Object { $_.is_dir -and $_.depth -eq 2 -and $_.size -gt 2GB -and $_.path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) } |
-      Sort-Object size -Descending | Select-Object -First 8)
-    if ($deep.Count -gt 0) {
-      Add-H ('<div class="card"><div class="card-title">二级目录大户</div>')
-      $maxDeep = ($deep | Measure-Object size -Maximum).Maximum
-      foreach ($x in $deep) {
-        $pct = if ($maxDeep -gt 0) { 100 * $x.size / $maxDeep } else { 0 }
-        $cat = Get-Category -Path $x.path -Size $x.size
-        $adv = Get-Advice -Category $cat
-        Add-H (New-BarRow -Name (Get-Leaf $x.path) -Path $x.path -SizeText (Format-Size $x.size) -Pct $pct -Color (Get-CatColor $cat) -Category $cat -Extra $adv.action)
-      }
-      Add-H '</div>'
+      $rank++
+      $children = @($allDeep | Where-Object { (Split-Path -Path $_.path -Parent).TrimEnd('\') -eq $x.path.TrimEnd('\') } | Sort-Object size -Descending | Select-Object -First 6)
+      Add-H (New-DirectoryCard -Item $x -Children $children -DriveUsed $d.used -Accent $acc -Open ($rank -le 4))
     }
   }
 
