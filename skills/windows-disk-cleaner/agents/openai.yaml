@@ -1,0 +1,7 @@
+interface:
+  display_name: "Windows Disk Cleaner"
+  short_description: "Safely scan, clean, migrate, and schedule Windows disk-space maintenance."
+  default_prompt: "Use $windows-disk-cleaner to scan my Windows drives and recommend a safe cleanup plan."
+
+policy:
+  allow_implicit_invocation: true

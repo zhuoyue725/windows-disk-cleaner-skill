@@ -1,0 +1,14 @@
+# Windows
+*.log
+*.tmp
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# 本地测试产物
+reports/
+plans/
+*.bak-*
