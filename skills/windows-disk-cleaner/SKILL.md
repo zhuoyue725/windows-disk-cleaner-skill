@@ -56,7 +56,10 @@ For details, read `references/cleanup-levels.md`.
      content type), ranked cleanup recommendations by risk tier, large items that need a human
      decision, and copy-pasteable execution commands.
    - Use `-Drives C:,G:` to limit scope, `-NoHtml` for Markdown only, `-TopFiles N` to change how
-     many large files are listed.
+     many large files are listed. When the user asks which concrete subdirectories are large rather
+     than only a drive overview, add `-DrillDown` (normally with one target drive). It rescans only
+     the largest second-level directories and adds a "深度大户" section; do not use a high global
+     `-Depth` for that purpose because it can produce an impractically large whole-drive result.
 
 4. **Classify**
    - Classify each candidate as `SAFE_DELETE`, `SAFE_IF_CLOSED`, `ADMIN_SAFE`, `CONFIRM_REQUIRED`, `MIGRATE_ONLY`, or `NEVER_DELETE`.

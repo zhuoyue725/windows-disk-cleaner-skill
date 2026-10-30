@@ -3,6 +3,9 @@
   [string]$PlanPath = '',
   [int]$Top = 12,
   [int]$Depth = 2,
+  # 仅对最大二级目录再次扫描，显示真实子目录大户，避免全盘四层扫描过慢。
+  [switch]$DrillDown,
+  [int]$DrillDownTop = 6,
   [string]$OutputDir = '',
   [switch]$NoHtml,
   [switch]$NoScan,
@@ -78,7 +81,7 @@ function Invoke-GduText {
 }
 
 function Parse-GduTree {
-  param([string[]]$Lines, [string]$DriveRoot)
+  param([string[]]$Lines, [string]$DriveRoot, [int]$DirectoryDepth = $Depth)
   $rows = @()
   # 盘根形如 C:\ —— 用 TrimEnd('\') 会连盘符后的反斜杠一起去掉，
   # 导致 C:\ 本身被当成子目录。这里显式保留根路径形式。
@@ -94,7 +97,7 @@ function Parse-GduTree {
       # 深度 = 相对盘根的目录层数。G:\A 为 1，G:\A\B 为 2。
       $depth = ([regex]::Matches($relative, '\\')).Count + 1
       $isDir = $true
-      if ($depth -le $Depth) {
+      if ($depth -le $DirectoryDepth) {
         $isDir = Test-Path -LiteralPath $path -PathType Container -ErrorAction SilentlyContinue
       }
       $rows += [pscustomobject]@{
@@ -279,6 +282,7 @@ $inventory = Get-DriveInventory -TargetDrives $Drives
 
 $treeRows = @()
 $fileRows = @()
+$drillRows = @()
 $engineNote = ''
 
 if ($gduPath -and -not $NoScan) {
@@ -396,6 +400,26 @@ if ($gduPath -and -not $NoScan) {
   foreach ($j in $fileHandles) {
     if (Test-Path -LiteralPath $j.h.outFile) {
       Read-GduFiles -OutFile $j.h.outFile -Drive $j.drive
+    }
+  }
+
+  # 细查模式：只对最大的二级目录重新下钻。例如 C:\Users\<用户> 会展开到
+  # AppData、缓存和模型等真实大户，而不会把整个 C: 的每个小目录都载入报告。
+  if ($DrillDown) {
+    $targets = @($treeRows | Where-Object { $_.is_dir -and $_.depth -eq 2 -and $_.size -ge 1GB } |
+      Sort-Object size -Descending | Select-Object -First ([Math]::Max(1, $DrillDownTop)))
+    foreach ($target in $targets) {
+      $drive = $target.path.Substring(0, 2)
+      $safeName = ($target.path -replace '[:\\]', '_')
+      Write-Host ('  深入扫描：' + $target.path)
+      $h = Start-GduProcess -Exe $gduPath -ExeArgs @('-n', '--depth', 3, $target.path) `
+        -OutFile (Join-Path $tmpDir ($safeName + '-drill.txt')) `
+        -ErrFile (Join-Path $tmpDir ($safeName + '-drill.err'))
+      $null = Complete-GduProcess -Handle $h -TimeoutSec $ScanTimeoutSec
+      if (Test-Path -LiteralPath $h.outFile) {
+        $lines = @(Get-Content -LiteralPath $h.outFile -Encoding UTF8 -ErrorAction SilentlyContinue)
+        $drillRows += Parse-GduTree -Lines $lines -DriveRoot ($drive + '\') -DirectoryDepth 8
+      }
     }
   }
 
@@ -855,7 +879,9 @@ if (-not $NoHtml) {
   Add-H '</style></head><body><div class="layout"><aside class="sidebar"><div class="nav-title">报告目录</div>'
   Add-H '<a class="nav-link" href="#overview"><span class="nav-dot"></span>磁盘总览</a><a class="nav-link" href="#reclaim"><span class="nav-dot" style="background:#5dcaa5"></span>可清理空间</a><div class="nav-section">'
   foreach ($d in $inventory) { Add-H ('<a class="nav-link nav-drive" href="#drive-' + $d.drive.TrimEnd(':') + '"><span class="nav-dot" style="background:' + $driveAccents[$d.drive] + '"></span>' + $d.drive + ' 盘</a>') }
-  Add-H '</div><div class="nav-section"><a class="nav-link" href="#largest-files"><span class="nav-dot" style="background:#c39bf2"></span>最大文件</a><a class="nav-link" href="#cleanup"><span class="nav-dot" style="background:#ef9f27"></span>清理建议</a><a class="nav-link" href="#decisions"><span class="nav-dot" style="background:#f093ab"></span>需决策项目</a><a class="nav-link" href="#steps"><span class="nav-dot" style="background:#6aa8f0"></span>执行步骤</a></div></aside><div class="wrap">'
+  Add-H '</div><div class="nav-section">'
+  foreach ($d in @($inventory | Where-Object { $_.free_pct -lt 20 })) { Add-H ('<a class="nav-link" href="#deep-' + $d.drive.TrimEnd(':') + '"><span class="nav-dot" style="background:' + $driveAccents[$d.drive] + '"></span>' + $d.drive + ' 深度大户</a>') }
+  Add-H '<a class="nav-link" href="#largest-files"><span class="nav-dot" style="background:#c39bf2"></span>最大文件</a><a class="nav-link" href="#cleanup"><span class="nav-dot" style="background:#ef9f27"></span>清理建议</a><a class="nav-link" href="#decisions"><span class="nav-dot" style="background:#f093ab"></span>需决策项目</a><a class="nav-link" href="#steps"><span class="nav-dot" style="background:#6aa8f0"></span>执行步骤</a></div></aside><div class="wrap">'
   Add-H ('<div id="overview"><h1>磁盘空间分析报告</h1><div class="meta">' + (Get-Date -Format 'yyyy-MM-dd HH:mm') + ' · 引擎 ' + (Escape-Html $engineNote) + ' · 只读扫描，未删除任何文件</div>')
 
   # 磁盘卡片：环形图 + 每盘主题色
@@ -941,6 +967,28 @@ if (-not $NoHtml) {
   }
 
   # 最大文件
+  # 细查模式中，列出定向下钻得到的真实大户。
+  foreach ($d in @($inventory | Where-Object { $_.free_pct -lt 20 })) {
+    $prefix = $d.drive + '\'
+    $deepHotspots = @($drillRows | Where-Object {
+      $_.is_dir -and $_.path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) -and $_.size -ge 1GB
+    } | Sort-Object size -Descending | Select-Object -First 24)
+    if ($deepHotspots.Count -eq 0) { continue }
+
+    Add-H ('<h2 id="deep-' + $d.drive.TrimEnd(':') + '"><span class="chip" style="background:' + $driveAccents[$d.drive] + '">' + $d.drive + '</span>' + $d.drive + ' 盘深度大户</h2>')
+    Add-H '<p class="note">来自对最大二级目录的定向下钻。这里列出超过 1 GB 的实际子目录；父子目录可能同时出现，体积不应相加。</p>'
+    Add-H '<div class="card deep-hotspots">'
+    $maxDeepHotspot = ($deepHotspots | Measure-Object size -Maximum).Maximum
+    foreach ($x in $deepHotspots) {
+      $pct = if ($maxDeepHotspot -gt 0) { 100 * $x.size / $maxDeepHotspot } else { 0 }
+      $cat = Get-Category -Path $x.path -Size $x.size
+      $adv = Get-Advice -Category $cat
+      $relative = $x.path.Substring($prefix.Length)
+      Add-H (New-BarRow -Name $relative -Path $x.path -SizeText (Format-Size $x.size) -Pct $pct -Color (Get-CatColor $cat) -Category $cat -Extra ('第 ' + $x.depth + ' 层 · ' + $adv.action))
+    }
+    Add-H '</div>'
+  }
+
   $largestFiles = @($fileRows | Where-Object { $_ -and $null -ne $_.PSObject.Properties['size'] } |
     Sort-Object size -Descending | Select-Object -First 12)
   if ($largestFiles.Count -gt 0) {
