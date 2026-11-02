@@ -5,6 +5,10 @@
   # 同时安装扫描引擎 gdu（推荐，报告功能需要它；不装则只能跑基础清理计划）
   [switch]$InstallGdu,
 
+  # Copy：独立拷贝，适合普通下载安装；Link：目录链接，适合本机开发时让多个 agent 共用同一份源文件。
+  [ValidateSet('Copy','Link')]
+  [string]$Mode = 'Copy',
+
   [string]$SkillSource = (Join-Path $PSScriptRoot 'skills\windows-disk-cleaner')
 )
 
@@ -13,6 +17,7 @@ $ErrorActionPreference = 'Stop'
 if (!(Test-Path -LiteralPath (Join-Path $SkillSource 'SKILL.md'))) {
   throw "Skill source not found: $SkillSource"
 }
+$SkillSource = (Resolve-Path -LiteralPath $SkillSource).Path
 
 $targets = [ordered]@{
   codex    = Join-Path $env:USERPROFILE '.codex\skills'
@@ -27,12 +32,33 @@ foreach ($name in $selected) {
   $root = $targets[$name]
   $dest = Join-Path $root 'windows-disk-cleaner'
   New-Item -ItemType Directory -Path $root -Force | Out-Null
-  if (Test-Path -LiteralPath $dest) {
-    Get-ChildItem -LiteralPath $SkillSource -Force | Copy-Item -Destination $dest -Recurse -Force
+  if ($Mode -eq 'Link') {
+    $existing = Get-Item -LiteralPath $dest -Force -ErrorAction SilentlyContinue
+    $alreadyLinked = $existing -and $existing.LinkType -eq 'Junction' -and @($existing.Target) -contains $SkillSource
+    if (-not $alreadyLinked) {
+      $backup = $null
+      if ($existing) {
+        $backup = $dest + '.backup-' + (Get-Date -Format 'yyyyMMddHHmmss')
+        Move-Item -LiteralPath $dest -Destination $backup -ErrorAction Stop
+      }
+      try {
+        New-Item -ItemType Junction -Path $dest -Target $SkillSource -ErrorAction Stop | Out-Null
+        if (!(Test-Path -LiteralPath (Join-Path $dest 'SKILL.md'))) { throw 'Junction verification failed.' }
+        if ($backup) { Remove-Item -LiteralPath $backup -Recurse -Force }
+      } catch {
+        if (Test-Path -LiteralPath $dest) { Remove-Item -LiteralPath $dest -Force -ErrorAction SilentlyContinue }
+        if ($backup -and (Test-Path -LiteralPath $backup)) { Move-Item -LiteralPath $backup -Destination $dest -ErrorAction SilentlyContinue }
+        throw
+      }
+    }
   } else {
-    Copy-Item -LiteralPath $SkillSource -Destination $root -Recurse -Force
+    if (Test-Path -LiteralPath $dest) {
+      Get-ChildItem -LiteralPath $SkillSource -Force | Copy-Item -Destination $dest -Recurse -Force
+    } else {
+      Copy-Item -LiteralPath $SkillSource -Destination $root -Recurse -Force
+    }
   }
-  $installed += [pscustomobject]@{ target = $name; path = $dest }
+  $installed += [pscustomobject]@{ target = $name; mode = $Mode; path = $dest }
 }
 
 # 注册本机 URL 协议，让 HTML 报告中的“打开”按钮启动 Windows 资源管理器，

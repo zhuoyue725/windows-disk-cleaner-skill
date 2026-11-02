@@ -48,6 +48,14 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -Target all
 powershell -ExecutionPolicy Bypass -File .\setup-gdu.ps1
 ```
 
+如果你正在本机开发或维护这个仓库，希望 Codex、WorkBuddy 与 Claude Code 永远读取同一份 Skill 源文件，可安装为目录链接：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -Target all -Mode Link
+```
+
+链接模式不会复制文件；更新仓库中的 Skill 后，各 agent 下次调用会自动使用最新版本。普通下载使用默认 `Copy` 模式即可。
+
 安装后重启终端（winget 安装的 gdu 需要重开才会进 PATH），然后直接对 AI 助手说：
 
 ```text
