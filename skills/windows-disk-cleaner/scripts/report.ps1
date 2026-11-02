@@ -3,13 +3,13 @@
   [string]$PlanPath = '',
   [int]$Top = 12,
   [int]$Depth = 2,
-  # 仅对最大二级目录再次扫描，显示真实子目录大户，避免全盘四层扫描过慢。
-  [switch]$DrillDown,
+  # 默认对最大二级目录再次扫描，显示真实子目录大户；仅在明确要求快速总览时关闭。
+  [switch]$NoDrillDown,
   [int]$DrillDownTop = 6,
   [string]$OutputDir = '',
   [switch]$NoHtml,
   [switch]$NoScan,
-  [int]$TopFiles = 15,
+  [int]$TopFiles = 30,
   [int]$ScanTimeoutSec = 600
 )
 
@@ -203,6 +203,33 @@ function Get-Category {
   if (Test-HasPath $n @('/docs/', '/documentation/')) { return '文档' }
 
   return '其他'
+}
+
+function Get-FileType {
+  param([string]$Path)
+  $name = [System.IO.Path]::GetFileName($Path).ToLowerInvariant()
+  $ext = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
+  switch ($ext) {
+    '.safetensors' { return 'AI 模型权重' }
+    '.ckpt' { return 'AI 模型权重' }
+    '.gguf' { return 'AI 模型权重' }
+    '.pth' { return 'AI 模型权重' }
+    '.onnx' { return 'AI 模型权重' }
+    '.vhdx' { return '虚拟磁盘' }
+    '.hprof' { return 'Java 堆转储' }
+    '.vscdb' { return '编辑器状态数据库' }
+    '.nvph' { return 'NVIDIA 图形缓存' }
+    '.pack' { return 'Git 对象包' }
+    '.tmp' { return '临时文件' }
+    '.zip' { return '压缩包' }
+    '.7z' { return '压缩包' }
+    '.rar' { return '压缩包' }
+    default {
+      if ($name -match '^indexing\.flag$|^stubindexstamp$') { return 'IDE 索引缓存' }
+      if ([string]::IsNullOrWhiteSpace($ext)) { return '无扩展名数据文件' }
+      return ('文件 ' + $ext)
+    }
+  }
 }
 
 function Get-Advice {
@@ -405,7 +432,7 @@ if ($gduPath -and -not $NoScan) {
 
   # 细查模式：只对最大的二级目录重新下钻。例如 C:\Users\<用户> 会展开到
   # AppData、缓存和模型等真实大户，而不会把整个 C: 的每个小目录都载入报告。
-  if ($DrillDown) {
+  if (-not $NoDrillDown) {
     $targets = @($treeRows | Where-Object { $_.is_dir -and $_.depth -eq 2 -and $_.size -ge 1GB } |
       Sort-Object size -Descending | Select-Object -First ([Math]::Max(1, $DrillDownTop)))
     foreach ($target in $targets) {
@@ -430,6 +457,15 @@ if ($gduPath -and -not $NoScan) {
   $engineNote = '未扫描磁盘（-NoScan），仅基于清理计划分析'
 } else {
   $engineNote = 'gdu 未安装，仅基于清理计划分析'
+}
+
+# 哪些盘在本轮定向下钻中实际获得了更深层结果，用于报告导航与展示。
+$deepDriveNames = @()
+foreach ($drive in $inventory) {
+  $prefix = $drive.drive + '\'
+  if (@($drillRows | Where-Object { $_.path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) }).Count -gt 0) {
+    $deepDriveNames += $drive.drive
+  }
 }
 
 # 读取清理计划
@@ -645,11 +681,11 @@ $mdFiles = @($fileRows | Where-Object { $_ -and $null -ne $_.PSObject.Properties
 if ($mdFiles.Count -gt 0) {
   Add-Md '### 3.4 单个大文件'
   Add-Md ''
-  Add-Md '| 文件 | 占用 | 性质 |'
-  Add-Md '| --- | ---: | --- |'
-  foreach ($f in @($mdFiles | Sort-Object size -Descending | Select-Object -First 10)) {
+  Add-Md '| 文件 | 占用 | 文件类型 | 性质 |'
+  Add-Md '| --- | ---: | --- | --- |'
+  foreach ($f in @($mdFiles | Sort-Object size -Descending | Select-Object -First $TopFiles)) {
     $cat = Get-Category -Path $f.path -Size $f.size
-    Add-Md ("| `{0}` | {1} | {2} |" -f (Escape-Md $f.path), (Format-Size $f.size), $cat)
+    Add-Md ("| `{0}` | {1} | {2} | {3} |" -f (Escape-Md $f.path), (Format-Size $f.size), (Get-FileType $f.path), $cat)
   }
   Add-Md ''
 }
@@ -880,7 +916,7 @@ if (-not $NoHtml) {
   Add-H '<a class="nav-link" href="#overview"><span class="nav-dot"></span>磁盘总览</a><a class="nav-link" href="#reclaim"><span class="nav-dot" style="background:#5dcaa5"></span>可清理空间</a><div class="nav-section">'
   foreach ($d in $inventory) { Add-H ('<a class="nav-link nav-drive" href="#drive-' + $d.drive.TrimEnd(':') + '"><span class="nav-dot" style="background:' + $driveAccents[$d.drive] + '"></span>' + $d.drive + ' 盘</a>') }
   Add-H '</div><div class="nav-section">'
-  foreach ($d in @($inventory | Where-Object { $_.free_pct -lt 20 })) { Add-H ('<a class="nav-link" href="#deep-' + $d.drive.TrimEnd(':') + '"><span class="nav-dot" style="background:' + $driveAccents[$d.drive] + '"></span>' + $d.drive + ' 深度大户</a>') }
+  foreach ($d in @($inventory | Where-Object { $deepDriveNames -contains $_.drive })) { Add-H ('<a class="nav-link" href="#deep-' + $d.drive.TrimEnd(':') + '"><span class="nav-dot" style="background:' + $driveAccents[$d.drive] + '"></span>' + $d.drive + ' 深度大户</a>') }
   Add-H '<a class="nav-link" href="#largest-files"><span class="nav-dot" style="background:#c39bf2"></span>最大文件</a><a class="nav-link" href="#cleanup"><span class="nav-dot" style="background:#ef9f27"></span>清理建议</a><a class="nav-link" href="#decisions"><span class="nav-dot" style="background:#f093ab"></span>需决策项目</a><a class="nav-link" href="#steps"><span class="nav-dot" style="background:#6aa8f0"></span>执行步骤</a></div></aside><div class="wrap">'
   Add-H ('<div id="overview"><h1>磁盘空间分析报告</h1><div class="meta">' + (Get-Date -Format 'yyyy-MM-dd HH:mm') + ' · 引擎 ' + (Escape-Html $engineNote) + ' · 只读扫描，未删除任何文件</div>')
 
@@ -968,7 +1004,7 @@ if (-not $NoHtml) {
 
   # 最大文件
   # 细查模式中，列出定向下钻得到的真实大户。
-  foreach ($d in @($inventory | Where-Object { $_.free_pct -lt 20 })) {
+  foreach ($d in @($inventory | Where-Object { $deepDriveNames -contains $_.drive })) {
     $prefix = $d.drive + '\'
     $deepHotspots = @($drillRows | Where-Object {
       $_.is_dir -and $_.path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) -and $_.size -ge 1GB
@@ -990,14 +1026,14 @@ if (-not $NoHtml) {
   }
 
   $largestFiles = @($fileRows | Where-Object { $_ -and $null -ne $_.PSObject.Properties['size'] } |
-    Sort-Object size -Descending | Select-Object -First 12)
+    Sort-Object size -Descending | Select-Object -First $TopFiles)
   if ($largestFiles.Count -gt 0) {
     Add-H '<h2 id="largest-files">最大的单个文件</h2>'
     $maxFile = ($largestFiles | Measure-Object size -Maximum).Maximum
     foreach ($f in $largestFiles) {
       $cat = Get-Category -Path $f.path -Size $f.size
       $pct = if ($maxFile -gt 0) { 100 * $f.size / $maxFile } else { 0 }
-      Add-H (New-BarRow -Name (Get-Leaf $f.path) -Path $f.path -SizeText (Format-Size $f.size) -Pct $pct -Color (Get-CatColor $cat) -Category $cat -Extra $f.drive -OpenParent)
+      Add-H (New-BarRow -Name (Get-Leaf $f.path) -Path $f.path -SizeText (Format-Size $f.size) -Pct $pct -Color (Get-CatColor $cat) -Category $cat -Extra ($f.drive + ' · ' + (Get-FileType $f.path)) -OpenParent)
     }
   }
 

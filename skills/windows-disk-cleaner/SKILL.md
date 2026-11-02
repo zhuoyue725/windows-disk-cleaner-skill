@@ -1,4 +1,4 @@
-﻿---
+---
 name: windows-disk-cleaner
 description: Diagnose, clean, and manage Windows disk space when users ask to free C drive or other drive space, clean Windows junk files, find large files, remove caches/logs/update leftovers, safely clean app data, schedule recurring cleanup, or migrate high-growth app data from C drive to another drive. Supports scan-only, conservative cleanup, standard cleanup, deep administrator cleanup, and long-term migration strategies with strict safety rules.
 ---
@@ -56,10 +56,10 @@ For details, read `references/cleanup-levels.md`.
      content type), ranked cleanup recommendations by risk tier, large items that need a human
      decision, and copy-pasteable execution commands.
    - Use `-Drives C:,G:` to limit scope, `-NoHtml` for Markdown only, `-TopFiles N` to change how
-     many large files are listed. When the user asks which concrete subdirectories are large rather
-     than only a drive overview, add `-DrillDown` (normally with one target drive). It rescans only
-     the largest second-level directories and adds a "深度大户" section; do not use a high global
-     `-Depth` for that purpose because it can produce an impractically large whole-drive result.
+     many large files are listed. Every report automatically rescans the largest second-level
+     directories and adds a "深度大户" section with concrete project, cache, model, LFS, and user-data
+     paths. Use `-NoDrillDown` only when the user explicitly requests a fast overview; do not use a
+     high global `-Depth` because it can produce an impractically large whole-drive result.
 
 4. **Classify**
    - Classify each candidate as `SAFE_DELETE`, `SAFE_IF_CLOSED`, `ADMIN_SAFE`, `CONFIRM_REQUIRED`, `MIGRATE_ONLY`, or `NEVER_DELETE`.
